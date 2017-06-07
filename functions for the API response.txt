@@ -1,0 +1,42 @@
+getSummary   ==> getSummary();
+To print the last x updated activity logs  ==> getActivitylog(<page num>);
+To get the list of verbs  ==> getVerbsList();
+To get the content in the specific verb  ==> getVerbDetail(<VerbName>);
+To get the parameter of the specific verb  ==> getVerbInParam(<VerbName>);
+To get the list of Playbooks  ==> getPlaybookList();
+To get the content in the specific playbook  ==> getPlaybookDetail(<directory>, <PlaybookName>);  //directory => draft/final
+To get the playbook graph from the playbook text(.yaml file)  ==> getPlaybookGraph(<directory>, <PlaybookName>);
+To build a playbook graph  ==> addVerb(req);
+		var resp = {
+    			"Playbook": "playbook",
+    			"verbName": "router_create_check",
+   				"Phase": "maintenance",
+    			"predecessorId": 1,
+    			"succesorId": -1,
+    			"condition": "",
+    			"side": "Left",
+    			"parameter": [{
+        					"router_ip": "{{ inventory_hostname }}"
+    						}]
+				};
+To build a Playbook in textual representation under draft folder  ==> rebuildCurrentPlaybook(<playbookName>);
+To build a Playbook in textual representation under Final folder  ==> buildPlaybook(<playbookName>);
+
+
+//Edit Playbook Content and update the Playbook graph
+var resp = {
+    		"playbook": "router_check_sample",
+    		"section": "pre-maintenance",
+    		"verbId": 2,
+    		"parameterName": "if_names",
+    		"parameterValue": "{{ fmt_ip }}",
+    		"condition" : "check_result.router_ready == 'READY'"
+			};
+To add the condition to the verb in the playbook  ==> addCondition(<playbook_path>, <resp>);
+To replace the condition in the verb in the playbook  ==> replaceCondition(<playbook_path>, <resp>);
+To delete the condition of the verb in the playbook  ==> deleteCondition(<playbook_path>, <resp>);
+To flip the condition(change the left and right verbId) in the playbook  ==> flipCondition(<playbook_path>, <resp>);
+To delete the Verb in the playbook  ==> deleteVerb(<playbook>, <verbId>, <section>);
+To add the Parameter Value to the verb in the playbook  ==> addParameterValue(<playbook_path>, <resp>);
+To replace the Parameter Value on the verb in the playbook  ==> replaceParameterValue(<playbook_path>, <resp>);
+To delete the Parameter Value of the verb in the playbook  ==> deleteParameterValue(<playbook_path>, <resp>);

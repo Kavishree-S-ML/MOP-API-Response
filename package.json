@@ -1,0 +1,15 @@
+{
+  "name": "mop_api_response",
+  "version": "1.0.0",
+  "description": "API response of MOP designer",
+  "main": "main.js",
+  "dependencies": {
+    "electron": "^1.6.10"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "",
+  "license": "ISC"
+}
