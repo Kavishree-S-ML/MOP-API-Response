@@ -83,6 +83,7 @@ function inordertoDel(tree, req) {
                 delete tree['cr'];
             }
         }
+        //call the function recursively to check for the requested verb id
         inordertoDel(tree.cl, req);
         inordertoDel(tree.cr, req);
         return tree;
