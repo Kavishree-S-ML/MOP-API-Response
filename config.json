@@ -1,3 +1,4 @@
+//creates a port for the webserver and the morph folder path
 {
 "host" : "localhost",
 "port" : "8080",
