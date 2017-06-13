@@ -1,247 +1,289 @@
-var fs = require('fs'),
-    activity_log_file = require('./log_file.js'),
-    dirName = require('./config').morph_path;
+//create a playbook graph file in tree format and in json format
+var fs = require('fs'),  //package required to read/write the file
+	activity_log_file = require('./log_file.js'),  //call the log_file script to add the activity log statement in activity log file 
+	dirName = require('./config').morph_path;  //call the config file to get the file path of morph
 
-var req = {  
-    "Playbook": "sample_tree_graph",
-    "verb": "router_check_installer",
-    "parameter": "",
-    "condition": "",
-    "parentId": 6,
-    "succesorId": -1,
-    "phase": "pre-maintenance",
-    "side": "Right"
+var req = {
+	"Playbook": "sample_tree_graph",
+	"verb": "router_check_test",
+	"parameter": "",
+	"condition": "",
+	"parentId": 7,
+	"succesorId": -1,
+	"phase": "pre-maintenance",
+	"side": "Left"
 };
 
-returnFileContent(req);
-//var returnFileContent = function(req) {
-function returnFileContent(req) {
-    var playbook = req.Playbook;
-    console.log("\n --> Playbook : " + playbook);
+addVerb(req);
+//var addVerb = function(req) {
+function addVerb(req) {
+	var playbook = req.Playbook;
+	console.log("\n --> Playbook : " + playbook);
 
-    var main_path = dirName + '/playbooks/draft/' + req.Playbook + '.json';
-    var addGraph = addVerb(main_path, req);
+	var main_path = dirName + '/playbooks/draft/' + req.Playbook + '.json';
+	var playbook_tree_path = dirName + '/playbooks/draft/' + req.Playbook + '_tree.json'
 
-    var doc = fs.readFileSync(main_path);
-    doc = JSON.parse(doc);
+	/*
+	    create playbook file in json format --> for creating textual representation of playbook later
+	    create playbook file in tree format --> to send the verb details with the verb id and the child node setails to the ui
+	*/
 
-    var playbook_tree_path = dirName + '/playbooks/draft/' + req.Playbook + '_tree.json'
-    if (fs.existsSync(playbook_tree_path)) {
-        var child_data = addChildTree(playbook_tree_path, doc, req);
-    } else {
-        var node_data = createNewTree(playbook_tree_path, req);
-    }
+	//add the verb to the playbook and update the json file
+	var addGraph = addPlaybookGraph(main_path, req);
 
-    var doc1 = fs.readFileSync(playbook_tree_path, 'utf-8');
-    var content = {
-        "Playbook": req.Playbook,
-        "tree": JSON.parse(doc1)
-    };
-    return content;
+	//read the playbook graph(json file) file to find the verb count, for assigning verb id in the playbook tree file
+	var doc = fs.readFileSync(main_path);
+	doc = JSON.parse(doc);
+
+	/*
+		check, whether playbook file is already existing or not,
+		if it is already existing, update the file with new verb,
+		else create a new file for the playbook
+	*/
+	if (fs.existsSync(playbook_tree_path)) {
+		var child_data = addChildTree(playbook_tree_path, doc, req);
+	} else {
+		var node_data = createNewTree(playbook_tree_path, req);
+	}
+
+	//read the playbook tree and send the repsonse to the ui
+	var doc1 = fs.readFileSync(playbook_tree_path, 'utf-8');
+	var content = {
+		"Playbook": req.Playbook,
+		"tree": JSON.parse(doc1)
+	};
+	return content;
 }
 
-module.exports = returnFileContent;
+module.exports = addVerb;
 
+//create a new tree for the playbook, if the file doent exists for the specified playbook
 function createNewTree(main_path, req) {
-    var tree = {};
-    tree["verb"] = req.verb;
-    tree["id"] = 1;
-    tree["cl"] = -1;
-    tree["cr"] = -1;
-    var fileContent = {};
-    fileContent[req.phase] = tree;
+	var tree = {};
+	tree["verb"] = req.verb;
+	tree["id"] = 1;
+	tree["cl"] = {};
+	tree["cr"] = {};
 
-    writeFileContent(main_path, fileContent);
+	var fileContent = {};
+	fileContent[req.phase] = tree;
+
+	//write the tree structure to the playbook file
+	writeFileContent(main_path, fileContent);
 }
 
+//add the child verb and update the playboook tree
 function addChildTree(main_path, doc, req) {
-    var tree = {};
-    tree = readPlaybookTree(main_path);
-    if (req.phase in tree) {
-        tree[req.phase] = inorder(tree[req.phase], doc, req);
-        writeFileContent(main_path, tree);
-    } else {
-        tree = addPhase(tree, doc, req);
-        writeFileContent(main_path, tree);
-    }
+	//read the playbook tree file and check whether the given phase exists or not
+	var tree = readPlaybookTree(main_path);
+	/*
+		if the given phase exists in the playbook, update the phase with new child verb,
+		else create a new phase in the plyabook tree file
+	*/
+	if (req.phase in tree) {
+		tree[req.phase] = inorderAddTree(tree[req.phase], doc, req);
+		writeFileContent(main_path, tree);
+	} else {
+		tree = addPhase(tree, doc, req);
+		writeFileContent(main_path, tree);
+	}
 }
 
-function inorder(tree, doc, req) {
-    if (tree !== undefined) {
-       if (tree["id"] == req.parentId) {
-            if (req.side == "Left") {
-                tree.cl = {
-                    "verb": req.verb,
-                    "id": findVerbId(doc) - 1,
-                    "cl": -1,
-                    "cr": -1
-                };
-            } else if (req.side == "Right") {
-                tree.cr = {
-                    "verb": req.verb,
-                    "id": findVerbId(doc) - 1,
-                    "cl": -1,
-                    "cr": -1
-                };
-            }
-        }
-        inorder(tree.cl, doc, req);
-        inorder(tree.cr, doc, req);
-    }
-    return tree;
+//check the parent verb id, add the new child verb to the corresponding parent verb and update the tree
+function inorderAddTree(tree, doc, req) {
+	if (tree !== undefined) {
+		if (tree["id"] == req.parentId) {
+			if (req.side == "Left") {
+				tree.cl = {
+					"verb": req.verb,
+					"id": findVerbId(doc) - 1,
+					"cl": {},
+					"cr": {}
+				};
+			} else if (req.side == "Right") {
+				tree.cr = {
+					"verb": req.verb,
+					"id": findVerbId(doc) - 1,
+					"cl": {},
+					"cr": {}
+				};
+			}
+		}
+		//call the function recursively and check for the parent verb
+		inorderAddTree(tree.cl, doc, req);
+		inorderAddTree(tree.cr, doc, req);
+	}
+	return tree;
 }
 
+//if the given phase doen't exists in the playbook, create a phase and add the parent verb
 function addPhase(tree, doc, req) {
-    tree[req.phase] = {
-        "verb": req.verb,
-        "id": findVerbId(doc)-1,
-        "cl": -1,
-        "cr": -1
-    };
-return tree;
+	tree[req.phase] = {
+		"verb": req.verb,
+		"id": findVerbId(doc) - 1,
+		"cl": {},
+		"cr": {}
+	};
+	return tree;
 }
 
+//read the playbook tree file and return the content in the file
 function readPlaybookTree(main_path) {
-    if (fs.existsSync(main_path)) {
-        var data = (fs.readFileSync(main_path, 'utf8'));
-        data = JSON.parse(data);
-        return data;
-    }
+	if (fs.existsSync(main_path)) {
+		var data = (fs.readFileSync(main_path, 'utf8'));
+		data = JSON.parse(data);
+		return data;
+	}
 }
 
+//write the content in the file
 function writeFileContent(main_path, datas) {
-    fs.writeFileSync(main_path, JSON.stringify(datas, null, 2));
+	fs.writeFileSync(main_path, JSON.stringify(datas, null, 2));
 }
 
 
-//Create a playbook without phase
-
-function addVerb(main_path, req) {
-    if (fs.existsSync(main_path)) {
-        var child_data = addChildNode(main_path, req);
-    } else {
-        var node_data = createNewFile(main_path, req);
-    }
+//Create a playbook without phase in json format
+function addPlaybookGraph(main_path, req) {
+	//check for the existence of playbook graph file
+	if (fs.existsSync(main_path)) {
+		var child_data = addChildNode(main_path, req);
+	} else {
+		var node_data = createNewFile(main_path, req);
+	}
 
 }
 
+//create a new playbook graph file and add the verb, incase there is no playbook graph file has been created for the specific playbook
 function createNewFile(main_path, req) {
-    var verb = {},
-        verb_list = [],
-        graph = {},
-        graph_list = [],
-        file_content = {};
+	var verb = {},
+		verb_list = [],
+		graph = {},
+		graph_list = [],
+		file_content = {};
 
-    verb['VerbID'] = 1;
-    verb['VerbName'] = req.verb;
-    verb['VerbParameter'] = req.parameter;
-    verb['Condition'] = req.condition;
-    verb['phase'] = req.phase;
+	verb['VerbID'] = 1;
+	verb['VerbName'] = req.verb;
+	verb['VerbParameter'] = req.parameter;
+	verb['Condition'] = req.condition;
+	verb['phase'] = req.phase;
 
-    graph['VerbID'] = 1;
-    graph['Condition'] = req.condition;
-    graph['predecessorVerb'] = req.parentId;
-    graph['LeftVerb'] = -1;
-    graph['RightVerb'] = -1;
+	graph['VerbID'] = 1;
+	graph['Condition'] = req.condition;
+	graph['predecessorVerb'] = req.parentId;
+	graph['LeftVerb'] = -1;
+	graph['RightVerb'] = -1;
 
-    verb_list.push(verb);
-    graph_list.push(graph);
+	verb_list.push(verb);
+	graph_list.push(graph);
 
 
-    var graph_form = {};
-    graph_form[req.phase] = graph_list
+	var graph_form = {};
+	graph_form[req.phase] = graph_list
 
-    file_content['Playbook'] = req.Playbook;
-    file_content['Verb'] = verb_list;
-    file_content['Graph'] = graph_form;
-    writeFileContent(main_path, file_content);
+	//store the content in json format and write it in playbook graph file
+	file_content['Playbook'] = req.Playbook;
+	file_content['Verb'] = verb_list;
+	file_content['Graph'] = graph_form;
 
-    activity_log_file("Playbook", "Added", ">>>New Playbook-->'" + req.Playbook + "' has been created with a Parent Verb :'" + req.verb + "'");
+	writeFileContent(main_path, file_content);
+
+	//add the activity statements to the activity_log file
+	activity_log_file("Playbook", "Added", ">>>New Playbook-->'" + req.Playbook + "' has been created with a Parent Verb :'" + req.verb + "'");
 }
 
+
+//add the child node based on the parentId
 function addChildNode(main_path, req) {
-    var verb = {},
-        verb_list = [],
-        graph = {},
-        graph_list = [];
+	var verb = {},
+		verb_list = [],
+		graph = {},
+		graph_list = [];
 
-    var doc = fs.readFileSync(main_path);
-    doc = JSON.parse(doc);
+	var doc = fs.readFileSync(main_path);
+	doc = JSON.parse(doc);
 
-    verb['VerbID'] = findVerbId(doc);
-    verb['VerbName'] = req.verb;
-    verb['VerbParameter'] = req.parameter;
-    verb['Condition'] = req.condition;
-    verb['phase'] = req.phase;
+	verb['VerbID'] = findVerbId(doc);
+	verb['VerbName'] = req.verb;
+	verb['VerbParameter'] = req.parameter;
+	verb['Condition'] = req.condition;
+	verb['phase'] = req.phase;
 
-    graph['VerbID'] = findVerbId(doc);
-    graph['Condition'] = req.condition;
-    graph['predecessorVerb'] = req.parentId;
+	graph['VerbID'] = findVerbId(doc);
+	graph['Condition'] = req.condition;
+	graph['predecessorVerb'] = req.parentId;
 
-    doc.Verb.push(verb);
+	doc.Verb.push(verb);
 
-    if (req.parentId != 0 && req.succesorId == -1) {
-        for (var i = 0; i < doc.Graph[req.phase].length; i++) {
-            if (req.parentId == doc.Graph[req.phase][i]['VerbID']) {
-                if (req.side == "Right") {
-                    doc.Graph[req.phase][i].RightVerb = graph['VerbID'];
-                } else {
-                    doc.Graph[req.phase][i].LeftVerb = graph['VerbID'];
-                }
-            }
-        }
-        graph['LeftVerb'] = -1;
-        graph['RightVerb'] = -1;
-        doc.Graph[req.phase].push(graph);
-    } else if (req.parentId == 0 && req.succesorId != -1) { //add at begin
-        for (var i = 0; i < doc.Graph[req.phase].length; i++) {
-            if (req.succesorId == doc.Graph[req.phase][i]['VerbID']) {
-                doc.Graph[req.phase][i].predecessorVerb = graph['VerbID'];
-                if (req.side == "Right") {
-                    graph['LeftVerb'] = -1;
-                    graph['RightVerb'] = doc.Graph[req.phase][i]['VerbID'];
-                } else {
-                    graph['RightVerb'] = -1
-                    graph['LeftVerb'] = doc.Graph[req.phase][i]['VerbID'];
-                }
-            }
-        }
-        doc.Graph[req.phase].push(graph);
-    } else if (req.parentId != 0 && req.succesorId != -1) { //add at begin
-        for (var i = 0; i < doc.Graph[req.phase].length; i++) {
-            if (req.parentId == doc.Graph[req.phase][i]['VerbID']) {
-                if (req.side == "Right") {
-                    graph['LeftVerb'] = -1;
-                    graph['RightVerb'] = doc.Graph[req.phase][i].RightVerb;
-                    doc.Graph[req.phase][i].RightVerb = graph['VerbID'];
-                } else {
-                    graph['RightVerb'] = -1
-                    graph['LeftVerb'] = doc.Graph[req.phase][i].LeftVerb;
-                    doc.Graph[req.phase][i].LeftVerb = graph['VerbID'];
-                }
-            }
-            if (req.succesorId == doc.Graph[req.phase][i]['VerbID']) {
-                doc.Graph[req.phase][i].predecessorVerb = graph['VerbID'];
-            }
-        }
-        doc.Graph[req.phase].push(graph);
-    } else if (req.parentId == 0 && req.succesorId == -1) {
-        graph['LeftVerb'] = -1;
-        graph['RightVerb'] = -1;
-        var graph_list = [];
-        graph_list.push(graph);
+	/*
+	    if the parent verb id is something and succesor id is "-1", 
+	    then add the child at the right/left end to the parent(based on the side given by the user)
+	*/
+	if (req.parentId != 0 && req.succesorId == -1) {
+		for (var i = 0; i < doc.Graph[req.phase].length; i++) {
+			if (req.parentId == doc.Graph[req.phase][i]['VerbID']) {
+				if (req.side == "Right") {
+					doc.Graph[req.phase][i].RightVerb = graph['VerbID'];
+				} else {
+					doc.Graph[req.phase][i].LeftVerb = graph['VerbID'];
+				}
+			}
+		}
+		graph['LeftVerb'] = -1;
+		graph['RightVerb'] = -1;
+		doc.Graph[req.phase].push(graph);
+	} else if (req.parentId == 0 && req.succesorId != -1) { //if parent id =0 and succesorId is not "-1", then add the verb at the beginning
+		for (var i = 0; i < doc.Graph[req.phase].length; i++) {
+			if (req.succesorId == doc.Graph[req.phase][i]['VerbID']) {
+				doc.Graph[req.phase][i].predecessorVerb = graph['VerbID'];
+				if (req.side == "Right") {
+					graph['LeftVerb'] = -1;
+					graph['RightVerb'] = doc.Graph[req.phase][i]['VerbID'];
+				} else {
+					graph['RightVerb'] = -1
+					graph['LeftVerb'] = doc.Graph[req.phase][i]['VerbID'];
+				}
+			}
+		}
+		doc.Graph[req.phase].push(graph);
+	} else if (req.parentId != 0 && req.succesorId != -1) { //if parent id is not "0" & succesorId is not "-1", then add the verb in between "parent"& "succesor"
+		for (var i = 0; i < doc.Graph[req.phase].length; i++) {
+			if (req.parentId == doc.Graph[req.phase][i]['VerbID']) {
+				if (req.side == "Right") {
+					graph['LeftVerb'] = -1;
+					graph['RightVerb'] = doc.Graph[req.phase][i].RightVerb;
+					doc.Graph[req.phase][i].RightVerb = graph['VerbID'];
+				} else {
+					graph['RightVerb'] = -1
+					graph['LeftVerb'] = doc.Graph[req.phase][i].LeftVerb;
+					doc.Graph[req.phase][i].LeftVerb = graph['VerbID'];
+				}
+			}
+			if (req.succesorId == doc.Graph[req.phase][i]['VerbID']) {
+				doc.Graph[req.phase][i].predecessorVerb = graph['VerbID'];
+			}
+		}
+		doc.Graph[req.phase].push(graph);
+	} else if (req.parentId == 0 && req.succesorId == -1) { //if parent id is "0" & succesorId is "-1", then add the verb at the beginning, with no child verbs
+		graph['LeftVerb'] = -1;
+		graph['RightVerb'] = -1;
+		var graph_list = [];
+		graph_list.push(graph);
 
-        doc.Graph[req.phase] = graph_list;
-    }
+		doc.Graph[req.phase] = graph_list;
+	}
 
-    writeFileContent(main_path, doc);
-    activity_log_file("Playbook", "Updated", ">>>Verb :'" + req.verb + "' is added to the Playbook-->'" + req.Playbook + "'");
+	//write the content to the playbook graph file
+	writeFileContent(main_path, doc);
+
+	//add the activity statements in the activity log file
+	activity_log_file("Playbook", "Updated", ">>>Verb :'" + req.verb + "' is added to the Playbook-->'" + req.Playbook + "'");
 }
 
+//find the verb id for the newly added verb, based on the number of verbs already added to the playbook
 function findVerbId(req) {
-    var verb_id = "";
-    for (var i = 0; i < req.Verb.length; i++) {
-        verb_id = req.Verb[i].VerbID;
-    }
-    return verb_id + 1;
+	var verb_id = "";
+	for (var i = 0; i < req.Verb.length; i++) {
+		verb_id = req.Verb[i].VerbID;
+	}
+	return verb_id + 1;
 }
