@@ -1,6 +1,6 @@
 //get the available verb list
 var fs = require('fs'),
-      direct_name = require('./config').morph_path;
+    direct_name = require('./config').morph_path;
 
 var getVerbsList = function() {
     var path = direct_name + "/roles";
@@ -14,7 +14,7 @@ var getVerbsList = function() {
         /*
             get the available categories of verb by splitting the name of the verb file and store it in category array
             and get the verb file name and push the name in "verb" array
-         */   
+         */
         fs.readdirSync(path).filter(function(file) {
             if (fs.statSync(path + '/' + file).isDirectory()) {
                 category.push(file.split('_')[1]);
