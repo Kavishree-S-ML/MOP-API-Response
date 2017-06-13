@@ -1,7 +1,6 @@
-const electron = require('electron')
-const fs = require('fs');
-var http = require('http');
-var direct_name = require('./config').morph_path;
+//get the available verb list
+var fs = require('fs'),
+      direct_name = require('./config').morph_path;
 
 var getVerbsList = function() {
     var path = direct_name + "/roles";
@@ -10,20 +9,22 @@ var getVerbsList = function() {
         verb = [],
         Verbs_Categ = [];
 
+    //check the existence of verb folder path
     if (fs.existsSync(path)) {
+        /*
+            get the available categories of verb by splitting the name of the verb file and store it in category array
+            and get the verb file name and push the name in "verb" array
+         */   
         fs.readdirSync(path).filter(function(file) {
             if (fs.statSync(path + '/' + file).isDirectory()) {
                 category.push(file.split('_')[1]);
-            }
-        });
-        category = remove_duplicates_safe(category);
-
-        fs.readdirSync(path).filter(function(file) {
-            if (fs.statSync(path + '/' + file).isDirectory()) {
                 verb.push(file);
             }
         });
+        //get the unique category list
+        category = remove_duplicates_safe(category);
 
+        //arrange the file based on the category of the playbook and store it in json format
         for (var i = 0; i < category.length; i++) {
             var k = 0;
             var cat_verb = [];
@@ -38,6 +39,8 @@ var getVerbsList = function() {
                 "Verbs": cat_verb
             });
         }
+
+        //return the json format to the ui
         var data = {
             "Verbs": Verbs_Categ
         };
@@ -51,6 +54,8 @@ var getVerbsList = function() {
 
 module.exports = getVerbsList;
 
+
+//remove the duplicate values in the array and find the unique value
 function remove_duplicates_safe(category) {
     var seen = {};
     var ret_arr = [];
