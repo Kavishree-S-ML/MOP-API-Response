@@ -10,7 +10,7 @@ To build a playbook graph  ==> addVerb(req);
 		var resp = {
     			"Playbook": "playbook",
     			"verbName": "router_create_check",
-   				"Phase": "maintenance",
+   			"Phase": "maintenance",
     			"predecessorId": 1,
     			"succesorId": -1,
     			"condition": "",
