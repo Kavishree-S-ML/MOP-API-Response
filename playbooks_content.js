@@ -1,5 +1,6 @@
-var fs = require('fs'),
-    yaml = require('js-yaml'),
+//get the content in the playbook yaml file
+var fs = require('fs'),  //package rquired to read/write the file 
+    yaml = require('js-yaml'),  //package required to read the yaml file content and change to json format
     direct_name = require('./config').morph_path;
 
 var getPlaybookDetail = function(directory, playbook_nameorid) {
@@ -7,9 +8,11 @@ var getPlaybookDetail = function(directory, playbook_nameorid) {
     var doc = {};
 
     if (fs.existsSync(playbook_path)) {
+        //read the playbook yaml file
         var doc = yaml.safeLoad(fs.readFileSync(playbook_path, 'utf8'));
         console.log("\n Playbook : " +playbook_nameorid+"\n -------------------------------------\n"+ JSON.stringify(doc));
 
+        //store the content in json format and return it to the ui
         var content = {
             "PlayBook": playbook_nameorid,
             "Details": doc
